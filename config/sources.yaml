@@ -1,0 +1,12 @@
+sources:
+  - name: pm_kisan
+    url: https://pmkisan.gov.in/
+    publisher_type: government
+
+  - name: agrimachinery
+    url: https://agrimachinery.nic.in/
+    publisher_type: government
+
+  - name: schemesinindia
+    url: https://schemesinindia.in/
+    publisher_type: government
