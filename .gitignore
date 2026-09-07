@@ -223,3 +223,4 @@ data/database/*
 data/vectorstore/*
 logs/*
 .env
+data/processed/pdfs

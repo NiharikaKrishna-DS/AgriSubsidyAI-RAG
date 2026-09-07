@@ -24,6 +24,7 @@ def test_fetch_url_saves_clean_document(monkeypatch, tmp_path):
     assert "Menu" not in result["text"]
     assert "ignore" not in result["text"]
     assert result["links"] == []
+    assert result["sections"][0]["text"] == "Useful text"
     assert expected_file.exists()
 
 

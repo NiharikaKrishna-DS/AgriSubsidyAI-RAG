@@ -4,9 +4,11 @@
 
 ---
 
-## Status: Architecture and initial development
+## Status: Initial development
 
-This project is currently in the **architecture and initial development stage**. No end-to-end pipeline, trained models, deployed application, or evaluated results exist yet. Sections describing capabilities describe **planned** behavior unless explicitly marked as implemented.
+The HTML/PDF ingestion and preprocessing pipeline is implemented and tested.
+Vector indexing, structured extraction, retrieval, orchestration, and the
+application layers are still under development.
 
 > This is an independent educational project. It is not affiliated with or endorsed by any government department.
 
@@ -20,6 +22,24 @@ AgriSubsidyAI is a **personal learning and portfolio project**. It is designed t
 - This system **is not** an official government service and has **no official government affiliation or endorsement**.
 - All answers are grounded in cited sources, but sources may be incomplete, outdated, or third-party in nature.
 - **Final eligibility, application status, and approval must always be verified with the responsible government department.**
+
+---
+
+## What Is Implemented
+
+- HTML crawling with removal of common page chrome and preservation of heading-based sections
+- Text-based PDF extraction with page and heading metadata
+- Unicode, whitespace, boilerplate, duplicate-line, and null-character cleanup
+- Layout-aware chunking with tokenizer-aware recursive fallback
+- Shared chunking configuration for tokenizer, limits, overlap, and validation
+- Deterministic chunk-quality checks and embedding-ready output
+- Manual inspection samples for representative chunks
+- Unit tests for fetching, cleaning, extraction, chunking, and validation
+
+## Current Focus
+
+The next stages are embedding generation, FAISS indexing, structured scheme
+extraction, retrieval evaluation, and the application layer.
 
 ---
 
@@ -62,19 +82,40 @@ This is a **learning project** built to practice real-world RAG system design, a
 
 ## Current Status
 
-**What exists today:** architecture design, planned repository layout, and this documentation.
+**What exists today:** a working initial ingestion and preprocessing pipeline for
+HTML and PDF sources, together with unit tests and deterministic chunk-quality
+evaluation.
 
 **What does NOT exist yet:**
 
 - No production deployment
-- No completed ingestion pipeline
+- No completed end-to-end ingestion-to-vector-search pipeline
 - No populated database or vector index
 - No tested language support
-- No evaluation results or accuracy figures
+- No retrieval or answer-quality evaluation results
 - No government partnerships or endorsements
 - No live demo
 
-Anything not explicitly listed under "Current Status" should be assumed to be **planned, not built**.
+Anything not explicitly listed under "Current Status" should be assumed to be
+**planned, not built**.
+
+### Implemented ingestion capabilities
+
+- Crawls configured HTML sources and removes common page chrome such as scripts,
+  navigation, headers, and footers.
+- Preserves HTML heading-based sections in fetched JSON documents.
+- Extracts text from text-based PDFs with page numbers and detected headings.
+- Normalizes Unicode and whitespace, removes known source boilerplate, removes
+  repeated lines, and removes null characters from extracted text.
+- Discovers supported `.json`, `.html`, and `.pdf` files recursively from the
+  configured input directory.
+- Uses one `ChunkingConfig` for tokenizer, token limit, chunk size, overlap,
+  and validation thresholds.
+- Uses layout-aware section chunking with tokenizer-aware recursive fallback.
+- Preserves source URL/path, title, section, page number, chunk index, hashes,
+  word count, and model-token count.
+- Writes the full chunk set, an embedding-ready chunk set, a quality report, and
+  an evenly distributed manual inspection sample.
 
 ---
 
@@ -89,7 +130,7 @@ Anything not explicitly listed under "Current Status" should be assumed to be **
 - Support hybrid (keyword + semantic, structured + unstructured) retrieval
 - Ask clarification questions when key farmer details are missing
 - Generate grounded, cited, plain-language answers
-- Support multiple Indian languages (TODO: languages to be confirmed after testing)
+- Support multiple Indian languages (languages to be confirmed after testing)
 - Disclose conflicting or outdated source information
 - Provide a simple chat-style UI (Streamlit) backed by an API (FastAPI)
 
@@ -102,10 +143,10 @@ flowchart TB
     subgraph Sources["Public Sources"]
         GOV["Government Domains (gov.in, nic.in)"]
         SEC["Trusted Secondary / Discovery Sources"]
-        PDF["Future: PDF Documents"]
+        PDF["PDF Documents"]
     end
 
-    subgraph Ingestion["Ingestion Pipeline (Planned)"]
+    subgraph Ingestion["Ingestion Pipeline (Partially Implemented)"]
         CRAWL["Crawler / Loader"]
         CLEAN["Content Cleaning & Change Detection"]
     end
@@ -261,7 +302,8 @@ Change detection confirms only whether **downloaded content has changed since th
   - Date last checked
   - Freshness / change-detection metadata
 
-PDF and other document ingestion (notifications, circulars, forms) may be added in a later phase.
+Text-based PDF ingestion is implemented. OCR for scanned/image-only PDFs and
+additional document types remain future work.
 
 ---
 
@@ -269,8 +311,8 @@ PDF and other document ingestion (notifications, circulars, forms) may be added 
 
 | Layer | Contents | Purpose |
 |---|---|---|
-| **Raw data** | Original downloaded HTML / future source documents | Auditing, debugging, reprocessing |
-| **Processed data** | Cleaned content, chunked text, source metadata | Input to embedding and extraction steps |
+| **Raw data** | Original downloaded HTML / source documents | Auditing, debugging, reprocessing |
+| **Processed data** | Cleaned content, structure-aware chunks, metadata, and quality reports | Input to embedding and extraction steps |
 | **Structured data** | Validated scheme fields in SQLite | Deterministic filtering and lookups |
 | **Vector data** | Embeddings + metadata in FAISS | Semantic search over unstructured content |
 | **Ingestion metadata** | Source URL, HTTP status, last-checked date, content hash, change-detection status, ingestion result | Freshness tracking and pipeline observability |
@@ -314,9 +356,9 @@ AgriSubsidyAI-RAG/
 
 ---
 
-## Planned Technology Stack
+## Technology Stack
 
-> Proposed stack — subject to change as the project evolves. Nothing below implies a completed integration.
+> Components below are either implemented in preprocessing or planned for later phases.
 
 - **Python** — primary language
 - **FastAPI** — backend API layer
@@ -324,6 +366,8 @@ AgriSubsidyAI-RAG/
 - **SQLite** — structured scheme storage (local-first, personal project)
 - **FAISS** — local vector store
 - **BeautifulSoup** — HTML parsing
+- **pypdf** — text-based PDF extraction
+- **Hugging Face Transformers** — tokenizer-aware chunk sizing
 - **Requests / an appropriate webpage loader** — content fetching
 - **Embedding model** — configurable via environment settings (provider not fixed)
 - **LLM provider** — configurable via environment settings (provider not fixed)
@@ -344,17 +388,21 @@ Configuration is planned to be handled through environment variables (see `.env.
 - Source registry location
 - Logging level
 
-TODO: Finalize and document exact environment variable names once implemented.
+The preprocessing stage uses `EMBEDDING_MODEL`, with a multilingual
+Sentence Transformers model as the default. In VS Code, select
+`AgriSubsidyAI-RAG/venv/Scripts/python.exe` on Windows so installed packages
+such as `pypdf` and `transformers` resolve correctly.
 
 ---
 
-## Local Setup Instructions (TODO)
+## Local Setup Instructions
 
-> These steps describe the intended setup flow. Some details are placeholders until implementation is complete.
+> The ingestion and preprocessing steps below are available now. API and UI
+> commands will be added as those layers are implemented.
 
 1. Clone the repository:
    ```bash
-   git clone TODO-github-repo-url
+   git clone <your-repository-url>
    cd AgriSubsidyAI-RAG
    ```
 2. Create and activate a virtual environment:
@@ -370,9 +418,50 @@ TODO: Finalize and document exact environment variable names once implemented.
    ```bash
    cp .env.example .env
    ```
-5. TODO: Document initial ingestion command once the ingestion pipeline is implemented.
-6. TODO: Document how to run the FastAPI backend.
-7. TODO: Document how to run the Streamlit UI.
+5. Run the preprocessing stage before adding chunks to an embedding index:
+   ```bash
+   python -m ingestion.process
+   ```
+   The processor uses HTML headings and PDF page/heading boundaries where
+   available. Oversized sections use recursive word-based splitting while
+   retaining the section and PDF page metadata. Scanned/image-only PDFs
+   require OCR before processing. This writes `data/processed/chunks.jsonl`, a quality report, and
+   `data/processed/chunks_ready.jsonl`. Use the ready file as the sole input
+   to embedding; chunks that fail deterministic checks (missing metadata,
+   empty/short text, duplicate text, or excessive token length) remain in the
+   full file for inspection but are excluded from the ready file.
+   Explicit question headings (for example, `Who is eligible?`) preserve their
+   short answers. The processor also writes `chunk_inspection.jsonl` with up to
+   25 evenly distributed chunks for manual review.
+6. FastAPI and Streamlit commands will be documented when those layers are implemented.
+
+---
+
+## Preprocessing Observations From Current Data
+
+Manual inspection of 25 representative chunks identified the following
+patterns:
+
+- Many source pages combine scheme summaries, eligibility, documents, and
+  application instructions in one long page.
+- Some pages contain promotional/share widgets and malformed WhatsApp URL text;
+  these are removed or prevented from becoming FAQ headings.
+- Some PDF extraction output contains null characters or damaged characters;
+  null characters are removed, but OCR is still needed for image-only content.
+- Not every PDF exposes reliable headings, so page boundaries remain the
+  fallback structure.
+- FAQ pages often contain multiple questions and answers in one extracted
+  section; a future parser can split these into question-answer pairs.
+- The current run generated 181 chunks, including 49 question-heading chunks,
+  with no invalid chunks under the configured checks.
+- Short FAQ preservation is intentionally limited to sections with an explicit
+  question heading; short non-FAQ content remains subject to the minimum-word
+  check.
+- Chunk inspection showed that source cleanup and layout detection should be
+  revisited whenever a new publisher or page template is added.
+
+These observations describe the current sample and should not be interpreted
+as general accuracy or completeness guarantees.
 
 ---
 
@@ -427,9 +516,19 @@ A typical response is intended to include:
 
 ---
 
-## Testing and Evaluation Strategy (Planned)
+## Testing and Evaluation Strategy
 
-No evaluation has been run yet. The planned evaluation strategy covers:
+The preprocessing stage performs deterministic checks for empty text, missing
+metadata, duplicate content, short non-FAQ chunks, and chunks above the
+embedding model token limit. Explicit question headings preserve short FAQ
+answers. It also writes up to 25 evenly distributed chunks to
+`data/processed/chunk_inspection.jsonl` for manual review.
+
+A representative run over the current PDF collection produced 181 chunks:
+all 181 passed the implemented preprocessing checks. This is a preprocessing
+quality result, not a retrieval or answer-accuracy result.
+
+The broader planned evaluation strategy covers:
 
 - Router decision accuracy (correct route selected for a given question)
 - Retrieval relevance (structured and vector search)
@@ -442,23 +541,25 @@ No evaluation has been run yet. The planned evaluation strategy covers:
 - Website-change detection accuracy
 - End-to-end integration tests across the full pipeline
 
-TODO: Publish evaluation methodology and results once testing begins. No results exist today.
+Retrieval relevance, citation correctness, answer faithfulness, routing,
+multilingual quality, and end-to-end evaluation results do not exist yet.
 
 ---
 
 ## Development Roadmap
 
 ### Phase 1 — Foundations
-- [ ] Repository foundation
-- [ ] Configuration system
+- [x] Repository foundation
+- [x] Configuration system
 - [ ] Source registry
-- [ ] Structured logging setup
-- [ ] Basic webpage ingestion
+- [x] Structured logging setup
+- [x] Basic webpage ingestion
 
 ### Phase 2 — Knowledge Pipeline
-- [ ] Content cleaning
-- [ ] Metadata extraction
-- [ ] Chunking strategy
+- [x] Content cleaning
+- [x] Metadata extraction
+- [x] Chunking strategy
+- [x] Pre-embedding chunk quality evaluation
 - [ ] Embedding generation
 - [ ] FAISS vector index
 - [ ] Source citation tracking
@@ -497,6 +598,16 @@ TODO: Publish evaluation methodology and results once testing begins. No results
 - The project is in an early architecture and development stage; most components are not yet built.
 - No performance, accuracy, or coverage statistics exist yet.
 - No languages have been tested for multilingual support.
+- PDF extraction currently targets text-based PDFs; scanned/image-only PDFs
+  require OCR.
+- PDF heading detection is heuristic and may need adjustment when publishers
+  change layout or typography.
+- HTML pages with unusual layouts may produce weak section boundaries.
+- Source pages may contain stale, malformed, duplicated, or promotional text.
+- Cleaning rules are currently source-aware and should be reviewed when new
+  publishers are added.
+- The inspection file is a sample and is not a substitute for full-document
+  review.
 - Secondary-source information may be incomplete, outdated, or inaccurate.
 - Change detection confirms content changes but cannot verify factual correctness of source content.
 - No government partnership, endorsement, or data-sharing agreement exists.
@@ -517,23 +628,21 @@ AgriSubsidyAI is an **educational, portfolio-oriented project**. It is not a sub
 
 This is currently a personal learning project. Contribution guidelines will be added as the architecture stabilizes.
 
-TODO: Add contribution guidelines, coding standards, and issue/PR templates once the repository is public.
-
 ---
 
 ## License
 
-TODO: Add chosen license (e.g., MIT, Apache 2.0) and include the corresponding `LICENSE` file.
+This project is licensed under the terms in [LICENSE](LICENSE).
 
 ---
 
-## Project Links and Assets (TODO)
+## Project Links and Assets
 
-- GitHub repository: TODO
-- Application screenshot: TODO
-- Architecture image: TODO
-- Demo URL: TODO
-- Tested languages: TODO
-- Final LLM provider: TODO
-- Final embedding model: TODO
-- Contact information: TODO
+- GitHub repository: To be added
+- Application screenshot: To be added
+- Architecture image: See the diagrams in this README
+- Demo URL: Not available yet
+- Tested languages: Not evaluated yet
+- LLM provider: Not selected yet
+- Embedding model: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+- Contact information: To be added

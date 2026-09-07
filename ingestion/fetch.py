@@ -36,9 +36,24 @@ def extract_document(html, url):
         element.decompose()
 
     text = "\n".join(line.strip() for line in soup.get_text("\n").splitlines() if line.strip())
+    sections = []
+    heading = ""
+    lines = []
+    for element in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "table"]):
+        if element.name.startswith("h"):
+            if lines:
+                sections.append({"heading": heading, "text": "\n".join(lines), "section_index": len(sections)})
+                lines = []
+            heading = element.get_text(" ", strip=True)
+        else:
+            value = element.get_text(" ", strip=True)
+            if value:
+                lines.append(value)
+    if lines:
+        sections.append({"heading": heading, "text": "\n".join(lines), "section_index": len(sections)})
     links = [urljoin(url, link.get("href")) for link in soup.find_all("a", href=True)]
 
-    return {"url": url, "title": title, "text": text, "links": links}
+    return {"url": url, "title": title, "text": text, "sections": sections, "links": links}
 
 
 def save_document(document):
