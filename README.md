@@ -423,8 +423,9 @@ such as `pypdf` and `transformers` resolve correctly.
    python -m ingestion.process
    ```
    The processor uses HTML headings and PDF page/heading boundaries where
-   available. Oversized sections use recursive word-based splitting while
-   retaining the section and PDF page metadata. Scanned/image-only PDFs
+   available. Oversized sections use structure-aware, sentence-preserving
+   token-based packing while retaining the section and PDF page metadata.
+   Scanned/image-only PDFs
    require OCR before processing. This writes `data/processed/chunks.jsonl`, a quality report, and
    `data/processed/chunks_ready.jsonl`. Use the ready file as the sole input
    to embedding; chunks that fail deterministic checks (missing metadata,
@@ -435,11 +436,21 @@ such as `pypdf` and `transformers` resolve correctly.
    25 evenly distributed chunks for manual review.
 6. FastAPI and Streamlit commands will be documented when those layers are implemented.
 
+To build the local vector index, embed the validated chunks file only:
+
+```bash
+python -m scripts.embed
+```
+
+The command reads `data/processed/chunks_ready.jsonl` and rejects other input
+filenames. It writes the FAISS index, provenance metadata, and an embedding
+manifest under `data/vectorstore/`.
+
 ---
 
 ## Preprocessing Observations From Current Data
 
-Manual inspection of 25 representative chunks identified the following
+Manual inspection of 25 evenly distributed representative chunks identified the following
 patterns:
 
 - Many source pages combine scheme summaries, eligibility, documents, and
@@ -452,7 +463,7 @@ patterns:
   fallback structure.
 - FAQ pages often contain multiple questions and answers in one extracted
   section; a future parser can split these into question-answer pairs.
-- The current run generated 181 chunks, including 49 question-heading chunks,
+- The current run generated 180 chunks, including 49 question-heading chunks,
   with no invalid chunks under the configured checks.
 - Short FAQ preservation is intentionally limited to sections with an explicit
   question heading; short non-FAQ content remains subject to the minimum-word
@@ -462,6 +473,34 @@ patterns:
 
 These observations describe the current sample and should not be interpreted
 as general accuracy or completeness guarantees.
+
+---
+
+## Retrieval Evaluation Set
+
+`evaluation/retrieval_eval.json` contains a small, versioned set of eight
+representative queries. Each case records the expected source URL, evidence
+terms, and query category. Run the quick corpus check with:
+
+```bash
+python -m evaluation.retrieval_eval
+```
+
+It reports:
+
+- `source_url_coverage`: percentage of cases whose expected source exists in
+  `chunks_ready.jsonl`.
+- `evidence_case_coverage`: percentage of cases with at least one chunk from
+  the expected source containing every required evidence term.
+- Average source and evidence chunk counts per case.
+
+The current corpus check reports **8 cases, 180 chunks, 100% source URL
+coverage, and 100% evidence-case coverage**. These are corpus-coverage
+metrics, not semantic retrieval recall. After a vector index exists, the same
+cases should be evaluated against top-k results to report Recall@k, MRR, and
+evidence coverage of retrieved context. The set intentionally covers benefits,
+eligibility, documents, application guidance, and official-portal questions;
+it is a smoke test, not a statistically representative accuracy benchmark.
 
 ---
 
@@ -560,8 +599,8 @@ multilingual quality, and end-to-end evaluation results do not exist yet.
 - [x] Metadata extraction
 - [x] Chunking strategy
 - [x] Pre-embedding chunk quality evaluation
-- [ ] Embedding generation
-- [ ] FAISS vector index
+- [x] Embedding generation
+- [x] FAISS vector index
 - [ ] Source citation tracking
 
 ### Phase 3 — Structured Data

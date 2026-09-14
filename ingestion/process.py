@@ -24,7 +24,7 @@ except ModuleNotFoundError:
 
 
 DEFAULT_CHUNK_SIZE = 400
-DEFAULT_CHUNK_OVERLAP = 80
+DEFAULT_CHUNK_OVERLAP = 64
 DEFAULT_MIN_WORDS = 20
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_EMBEDDING_MODEL = (
@@ -44,6 +44,7 @@ DEFAULT_OUTPUT_FOLDER = "data/processed"
 
 _WHITESPACE_RE = re.compile(r"[ \t]+")
 _TOKEN_RE = re.compile(r"\S+")
+_SENTENCE_RE = re.compile(r".+?(?:[.!?]+(?=\s|$)|$)", re.DOTALL)
 _BOILERPLATE_REPLACEMENTS = (
     (
         re.compile(
@@ -158,13 +159,37 @@ class ChunkingConfig:
 
 
 # Comprehensive heading matcher for this document type
+
+# ==============================================================================
+# HEADING EXTRACTION REGEX
+# ==============================================================================
+# Purpose: Detects and validates document headings line-by-line.
+# Architecture: Uses a wrapping non-capturing group (?: ...) combined with 
+#               re.MULTILINE to enforce full-line validation for each pathway.
+# ==============================================================================
 _HEADING_RE = re.compile(
-    r"^(?:"
-    r".+\?\s*$"                                 # Captures lines ending in a question mark (FAQs)
-    r"|(?:How to|Benefits of|Who is|Documents Required|Official|Frequently Asked|Agriculture Infrastructure).+" # Common heading prefixes
-    r")$", 
-    re.MULTILINE
+    r"^"                                         # Matches the START of any individual line (due to re.MULTILINE)
+    r"(?:"                                       # Opens outer NON-CAPTURING GROUP (Groups all logic together without consuming memory)
+    
+    # --- PATHWAY 1: FAQ / Question Headings ---
+    r".+\?\s*$"                                  # .+: Requires at least 1 character of text
+                                                 # \?: MANDATORY literal question mark (escaped with backslash)
+                                                 # \s*$: Allows optional trailing whitespace up to the end of the line
+                                                 
+    r"|"                                         # OR operator (The fork in the road between Pathway 1 and Pathway 2)
+    
+    # --- PATHWAY 2: Structural Prefix Headings ---
+    r"(?:How to|Benefits of|Who is|Documents Required|Official|Frequently Asked|Agriculture Infrastructure)" 
+                                                 # Inner non-capturing group acting as an OR checklist for valid prefixes
+    r".+"                                        # .+: Requires at least one character of text immediately following the prefix
+    
+    r")"                                         # Closes outer NON-CAPTURING GROUP
+    r"$",                                        # Matches the END of any individual line (due to re.MULTILINE)
+    
+    re.MULTILINE                                 # CRITICAL FLAG: Changes '^' and '$' behavior from matching the 
+                                                 # entire string to matching the start/end of each individual line (\n).
 )
+
 _FAQ_HEADING_RE = re.compile(r"\?\s*$", re.IGNORECASE)
 
 
@@ -209,13 +234,22 @@ def _words(text: str) -> list[str]:
 @lru_cache(maxsize=4)
 def _load_tokenizer(model_name: str):
     """Load the Hugging Face tokenizer used by the selected embedding model."""
-    return AutoTokenizer.from_pretrained(model_name)
+    token = settings.HF_TOKEN if settings is not None else os.getenv("HF_TOKEN")
+    return AutoTokenizer.from_pretrained(
+        model_name,
+        token=token,
+    )
 
 
 def _token_count(text: str, tokenizer: Any | None = None) -> int:
     """Count tokens with the selected embedding model tokenizer."""
     tokenizer = tokenizer or _load_tokenizer(DEFAULT_EMBEDDING_MODEL)
-    return len(tokenizer.encode(text, add_special_tokens=True, truncation=False))
+    options = {"add_special_tokens": True, "truncation": False}
+    try:
+        encoded = tokenizer.encode(text, verbose=False, **options)
+    except TypeError:
+        encoded = tokenizer.encode(text, **options)
+    return len(encoded)
 
 
 def _content_hash(text: str) -> str:
@@ -335,29 +369,79 @@ def _recursive_chunks(
     prefix: str,
     config: ChunkingConfig,
 ) -> list[str]:
-    words = _words(text)
+    """Pack structural text units into tokenizer-bounded overlapping chunks.
+
+    Newline-delimited units are treated as paragraphs or list items. Normal
+    prose is then split at sentence boundaries; long units fall back to words
+    so the embedding model's token limit is always enforced.
+    """
+    ## preserve the original text structure by splitting into lines and then sentences
+    structural_units: list[str] = []
+    for line in (part.strip() for part in text.splitlines()):
+        if not line:
+            continue
+        if re.match(r"^(?:[-*•]|\d+[.)])\s+", line):
+            structural_units.append(line)
+            continue
+        structural_units.extend(
+            sentence.strip()
+            for sentence in _SENTENCE_RE.findall(line)
+            if sentence.strip()
+        )
+
+    units: list[str] = []
+    for unit in structural_units:
+        unit_words = _words(unit)
+        if not unit_words:
+            continue
+        if (
+            len(unit_words) <= config.chunk_size
+            and _token_count(clean_text(prefix + unit), config.get_tokenizer())
+            <= config.max_tokens
+        ):
+            units.append(unit)
+            continue
+
+        units.extend(unit_words)
+
     chunks: list[str] = []
     start = 0
-    while start < len(words):
-        upper = min(start + config.chunk_size, len(words))
-        low = start + 1
-        best_end: int | None = None
-        while low <= upper:
-            middle = (low + upper) // 2
-            candidate = " ".join(words[start:middle])
-            if _token_count(clean_text(prefix + candidate), config.get_tokenizer()) <= config.max_tokens:
-                best_end = middle
-                low = middle + 1
-            else:
-                upper = middle - 1
-        if best_end is None:
+    while start < len(units):
+        end = start
+        content_words = 0
+        while end < len(units):
+            # start at 0 index of list go until last like 0:1 0:2 0:3
+            candidate = " ".join(units[start : end + 1])
+            candidate_words = content_words + len(_words(units[end]))
+            if candidate_words > config.chunk_size:
+                break
+            if (
+                _token_count(clean_text(prefix + candidate), config.get_tokenizer())
+                > config.max_tokens
+            ):
+                break
+            content_words = candidate_words
+            end += 1
+        if end == start:
             raise ValueError(
                 "max_tokens is too small for the section heading and one word"
             )
-        chunks.append(" ".join(words[start:best_end]))
-        if best_end == len(words):
+        # when we break from inner while , imagine its 0:2 > max chunk , so though its end+1 = 2, end is still 1 so we append 0:1 to
+        chunks.append(" ".join(units[start:end]))
+        if end == len(units):
             break
-        start = best_end - min(config.chunk_overlap, best_end - start - 1)
+        overlap_words = 0
+        #lets say we got 0:5
+        overlap_start = end
+        while overlap_start > start + 1:
+            #counting the words of sentnece in end indices and checking if it is greater than overlap size, if yes then break
+            # 0:5 but 0,1,2,3,4 that is slicing is upper cound
+            unit_words = len(_words(units[overlap_start - 1]))
+            if overlap_words + unit_words > config.chunk_overlap:
+                break
+            overlap_words += unit_words
+            overlap_start -= 1
+        start = overlap_start if overlap_start < end else end
     return chunks
 
 
@@ -422,7 +506,7 @@ def chunk_document(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     tokenizer: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """Clean one document and split it into overlapping word-bounded chunks."""
+    """Clean one document and split it into structure-aware token-bounded chunks."""
     config = config or ChunkingConfig(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,

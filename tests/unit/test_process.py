@@ -47,6 +47,29 @@ def test_chunk_document_preserves_provenance_and_overlap():
     assert chunks[0]["text"].split()[-2:] == chunks[1]["text"].split()[:2]
 
 
+def test_chunking_preserves_sentence_boundaries_when_units_fit():
+    document = {
+        "url": "https://example.com/scheme",
+        "title": "Scheme",
+        "text": "First eligibility rule applies. Second benefit is paid annually. "
+        "Third document is required.",
+    }
+
+    chunks = chunk_document(
+        document,
+        chunk_size=20,
+        chunk_overlap=0,
+        max_tokens=12,
+        tokenizer=FakeTokenizer(),
+    )
+
+    assert [chunk["text"] for chunk in chunks] == [
+        "First eligibility rule applies.",
+        "Second benefit is paid annually.",
+        "Third document is required.",
+    ]
+
+
 def test_html_chunking_keeps_heading_context():
     html = "<h1>Eligibility</h1><p>" + " ".join(["farmer"] * 20) + "</p>"
 

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "aif-interest-and-guarantee",
+    "query": "What interest subsidy and credit guarantee does the Agriculture Infrastructure Fund provide?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/agri-infrastructure-fund"
+    ],
+    "relevant_terms": [
+      "3% interest subvention",
+      "CGTMSE",
+      "2 crore"
+    ],
+    "category": "benefits"
+  },
+  {
+    "id": "aif-application-documents",
+    "query": "Which documents are required to apply for the Agriculture Infrastructure Fund?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/agri-infrastructure-fund"
+    ],
+    "relevant_terms": [
+      "Aadhaar",
+      "PAN",
+      "Project Report",
+      "bank statement"
+    ],
+    "category": "documents"
+  },
+  {
+    "id": "kisan-credit-card-eligibility",
+    "query": "Who is eligible for a Kisan Credit Card?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/kisan-credit-card"
+    ],
+    "relevant_terms": [
+      "cultivation",
+      "fishermen",
+      "animal husbandry"
+    ],
+    "category": "eligibility"
+  },
+  {
+    "id": "pm-kisan-installment-help",
+    "query": "Where can I report a PM Kisan installment that has not arrived?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/pm-kisan-samman-nidhi"
+    ],
+    "relevant_terms": [
+      "155261",
+      "011-24300606",
+      "pmkisan.gov.in"
+    ],
+    "category": "application"
+  },
+  {
+    "id": "pm-kusum-subsidy",
+    "query": "How much subsidy is available for solar pumps under PM-KUSUM?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/pm-kusum-solar-pump-scheme"
+    ],
+    "relevant_terms": [
+      "60% subsidy",
+      "30% central",
+      "30% state"
+    ],
+    "category": "benefits"
+  },
+  {
+    "id": "fasal-bima-premium",
+    "query": "What premium do farmers pay under PM Fasal Bima Yojana?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/pm-fasal-bima-yojana"
+    ],
+    "relevant_terms": [
+      "1.5%",
+      "5%",
+      "sum insured"
+    ],
+    "category": "benefits"
+  },
+  {
+    "id": "pkvy-organic-support",
+    "query": "How much support does PKVY provide for organic farming?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/paramparagat-krishi-vikas-yojana-pkvy"
+    ],
+    "relevant_terms": [
+      "50,000",
+      "hectare",
+      "3 years"
+    ],
+    "category": "benefits"
+  },
+  {
+    "id": "digital-agriculture-portal",
+    "query": "What is the official application portal for the Digital Agriculture Mission?",
+    "relevant_source_urls": [
+      "https://schemesinindia.in/central/digital-agriculture-mission-2024"
+    ],
+    "relevant_terms": [
+      "agricoop.nic.in",
+      "free of charge",
+      "Kisan ID"
+    ],
+    "category": "application"
+  }
+]
