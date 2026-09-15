@@ -446,6 +446,27 @@ The command reads `data/processed/chunks_ready.jsonl` and rejects other input
 filenames. It writes the FAISS index, provenance metadata, and an embedding
 manifest under `data/vectorstore/`.
 
+Verify the generated index before using it for retrieval:
+
+```bash
+python -m scripts.verify_embeddings
+```
+
+The verifier checks that vector and metadata counts match
+`chunks_ready.jsonl`, chunk IDs are aligned, vectors are finite and
+non-zero, and normalized vectors have unit length. It also runs the
+retrieval smoke-test cases from `evaluation/retrieval_eval.json` and reports
+source and evidence hit rates at the selected `--top-k` (default: 5).
+
+Ask a plain-text question and retrieve relevant chunks with citations:
+
+```bash
+python -m scripts.query_embeddings "How much subsidy is available for solar pumps under PM-KUSUM?"
+```
+
+Use `--top-k` to control the number of results. Each result includes its
+similarity score, chunk text, title, section, source URL, and chunk ID.
+
 ---
 
 ## Preprocessing Observations From Current Data

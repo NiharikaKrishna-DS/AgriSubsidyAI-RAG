@@ -50,4 +50,7 @@ def test_embed_chunks_uses_only_ready_chunks_and_writes_metadata(tmp_path):
         .read_text(encoding="utf-8")
         .splitlines()
     ]
-    assert metadata == [{"chunk_id": "one"}, {"chunk_id": "two"}]
+    assert metadata == [
+        {"chunk_id": "one", "text": "first chunk"},
+        {"chunk_id": "two", "text": "second chunk"},
+    ]

@@ -64,8 +64,8 @@ def load_ready_chunks(path: str | Path = DEFAULT_CHUNKS_PATH) -> list[dict[str, 
 
 
 def _metadata(chunk: dict[str, Any]) -> dict[str, Any]:
-    """Keep retrieval provenance while excluding the repeated chunk text."""
-    return {key: value for key, value in chunk.items() if key != "text"}
+    """Keep chunk text and provenance so search results can be displayed."""
+    return dict(chunk)
 
 
 def embed_chunks(
